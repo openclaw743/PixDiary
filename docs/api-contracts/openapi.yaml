@@ -1,0 +1,546 @@
+openapi: 3.1.0
+info:
+  title: PixDiary API
+  version: 0.1.0
+  description: |
+    REST API for PixDiary MVP. See `README.md` for auth, error model, pagination.
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+  - url: /api
+    description: Production via SWA proxy
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+  - name: uploads
+  - name: entries
+  - name: settings
+  - name: account
+  - name: health
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      security: []
+      summary: Liveness
+      responses:
+        '200': { description: OK }
+
+  /readyz:
+    get:
+      tags: [health]
+      security: []
+      summary: Readiness (DB + blob + foundry)
+      responses:
+        '200': { description: OK }
+        '503': { description: One or more dependencies are down }
+
+  /auth/signup:
+    post:
+      tags: [auth]
+      security: []
+      summary: Create a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      security: []
+      summary: Login with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      security: []
+      summary: Exchange refresh token for a new access+refresh pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the given refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '204': { description: No content }
+
+  /me:
+    get:
+      tags: [account]
+      summary: Current user info
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+
+  /uploads:
+    post:
+      tags: [uploads]
+      summary: Request SAS upload URLs for a batch of photos
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryDate, items]
+              properties:
+                entryDate:
+                  type: string
+                  format: date
+                  description: Calendar date (in user's tz) the photos belong to
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  items:
+                    type: object
+                    required: [filename, mimeType, sizeBytes]
+                    properties:
+                      filename: { type: string }
+                      mimeType:
+                        type: string
+                        enum: [image/jpeg, image/png, image/heic, image/webp]
+                      sizeBytes:
+                        type: integer
+                        minimum: 1
+                        maximum: 26214400
+      responses:
+        '200':
+          description: SAS URLs issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        photoId: { type: string, format: uuid }
+                        sasUrl: { type: string, format: uri }
+                        blobPath: { type: string }
+                        expiresAt: { type: string, format: date-time }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMedia' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /entries:
+    get:
+      tags: [entries]
+      summary: List entries (most recent first)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/EntrySummary' }
+                  nextCursor:
+                    type: [string, "null"]
+
+  /entries/draft:
+    post:
+      tags: [entries]
+      summary: Create or replace today's entry draft from uploaded photo IDs
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryDate, photoIds]
+              properties:
+                entryDate: { type: string, format: date }
+                photoIds:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Draft kicked off
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entryId: { type: string, format: uuid }
+                  status:
+                    type: string
+                    enum: [pending, processing, drafted, processing_failed, quota_blocked]
+        '422': { $ref: '#/components/responses/QuotaExceeded' }
+
+  /entries/{entryId}:
+    get:
+      tags: [entries]
+      summary: Get an entry (poll this until status === 'drafted' or 'saved')
+      parameters:
+        - in: path
+          name: entryId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    put:
+      tags: [entries]
+      summary: Save (or update) the final entry text
+      parameters:
+        - in: path
+          name: entryId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+
+    delete:
+      tags: [entries]
+      summary: Soft-delete the entry (purged after 30 days)
+      parameters:
+        - in: path
+          name: entryId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Soft-deleted }
+
+  /entries/{entryId}/regenerate:
+    post:
+      tags: [entries]
+      summary: Regenerate the diary draft. Optionally with the higher-quality model.
+      parameters:
+        - in: path
+          name: entryId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quality:
+                  type: string
+                  enum: [standard, better]
+                  default: standard
+      responses:
+        '202':
+          description: Regen kicked off
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [processing] }
+        '422': { $ref: '#/components/responses/QuotaExceeded' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /settings:
+    get:
+      tags: [settings]
+      summary: Get user settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+    put:
+      tags: [settings]
+      summary: Update user settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+
+  /export:
+    get:
+      tags: [account]
+      summary: Export all the user's entries (and photo blob references) as JSON
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exportedAt: { type: string, format: date-time }
+                  user: { $ref: '#/components/schemas/User' }
+                  entries:
+                    type: array
+                    items: { $ref: '#/components/schemas/Entry' }
+
+  /account:
+    delete:
+      tags: [account]
+      summary: Permanently delete the account, all entries, and all photo blobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, confirmation]
+              properties:
+                password: { type: string }
+                confirmation:
+                  type: string
+                  enum: ["DELETE MY ACCOUNT"]
+      responses:
+        '202':
+          description: Deletion in progress
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SignupRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 10, maxLength: 200 }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        timezone: { type: string, example: "Europe/Copenhagen" }
+        dailyCapEur: { type: number, example: 0.50 }
+        createdAt: { type: string, format: date-time }
+
+    Settings:
+      type: object
+      properties:
+        timezone: { type: string }
+        dailyCapEur:
+          type: number
+          minimum: 0.10
+          maximum: 5.00
+
+    SettingsUpdate:
+      type: object
+      properties:
+        timezone: { type: string }
+        dailyCapEur:
+          type: number
+          minimum: 0.10
+          maximum: 5.00
+
+    PhotoSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        readUrl: { type: string, format: uri, description: 'SAS-signed read URL, ≤15min expiry' }
+        readUrlExpiresAt: { type: string, format: date-time }
+        width: { type: integer }
+        height: { type: integer }
+        takenAt: { type: [string, "null"], format: date-time }
+
+    Entry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        entryDate: { type: string, format: date }
+        status:
+          type: string
+          enum: [pending, processing, drafted, saved, processing_failed, quota_blocked, soft_deleted]
+        draftText: { type: [string, "null"] }
+        finalText: { type: [string, "null"] }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/PhotoSummary' }
+        createdAt: { type: string, format: date-time }
+        lastEditedAt: { type: [string, "null"], format: date-time }
+
+    EntrySummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        entryDate: { type: string, format: date }
+        status: { type: string }
+        thumbnailUrl: { type: [string, "null"], format: uri }
+        excerpt: { type: [string, "null"], description: 'First 120 chars of finalText or draftText' }
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationFailed:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: Photo too large
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UnsupportedMedia:
+      description: Unsupported mime type
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Rate limit hit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    QuotaExceeded:
+      description: Daily AI cost cap hit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
