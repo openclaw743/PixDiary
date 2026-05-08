@@ -5,6 +5,15 @@ export default defineConfig({
     globals: false,
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    // Integration tests share a single real Postgres (the CI service container
+    // or one Docker container per process). Running test files in parallel
+    // would race on the migration runner's CREATE EXTENSION. Force serial
+    // execution: one fork at a time, no parallel file scheduling.
+    pool: 'forks',
+    poolOptions: {
+      forks: { singleFork: true },
+    },
+    fileParallelism: false,
     testTimeout: 60_000,
     hookTimeout: 120_000,
     coverage: {
