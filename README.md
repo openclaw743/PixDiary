@@ -1,5 +1,9 @@
 # PixDiary
 
+[![CI](https://github.com/openclaw743/PixDiary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/openclaw743/PixDiary/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/openclaw743/PixDiary/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/openclaw743/PixDiary/actions/workflows/codeql.yml)
+[![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#license)
+
 AI-powered photo diary. Upload daily photos → automatic first-person narrative entry built from photo content, EXIF, and GPS. User edits, app keeps the diary.
 
 **Status:** Phase 1 — design.

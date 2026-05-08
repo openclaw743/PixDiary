@@ -1,0 +1,233 @@
+# Deploy — backend (ACR + Container App image bump), Terraform (dev), frontend (SWA).
+#
+# OIDC FEDERATED CREDENTIAL SETUP (TechLead, run once per UAMI/SP)
+# ----------------------------------------------------------------
+# This workflow logs in to Azure with `azure/login@v2` using OIDC, so no
+# long-lived secrets live in GitHub. The TechLead must:
+#
+# 1. Create (or reuse) a User-Assigned Managed Identity (or SP) with rights to:
+#      - AcrPush on the ACR
+#      - Contributor on the resource group (for `terraform apply`)
+#      - SWA deployment token read (or use SWA build token via `swa_secret`)
+#
+# 2. Add a federated credential on that UAMI/SP with:
+#      Issuer:          https://token.actions.githubusercontent.com
+#      Audience:        api://AzureADTokenExchange
+#      Subject (push):  repo:openclaw743/PixDiary:ref:refs/heads/main
+#      Subject (env):   repo:openclaw743/PixDiary:environment:dev-approve
+#    Add one credential per subject pattern that this workflow uses.
+#
+# 3. Set GitHub repo variables (Settings → Secrets and variables → Actions → Variables):
+#      AZURE_CLIENT_ID            — UAMI/SP client (application) id
+#      AZURE_TENANT_ID            — Azure AD tenant id
+#      AZURE_SUBSCRIPTION_ID      — target subscription id
+#      AZURE_RESOURCE_GROUP       — e.g. rg-Sandbox
+#      ACR_LOGIN_SERVER           — output `acr_login_server` from `terraform output` in #11
+#      ACR_NAME                   — short ACR name (without .azurecr.io)
+#      SWA_NAME                   — output `swa_name` from terraform (#11) — Static Web App resource name
+#      TF_STATE_RG                — resource group holding the Terraform state storage account
+#      TF_STATE_STORAGE_ACCOUNT   — storage account name for tfstate
+#      TF_STATE_CONTAINER         — blob container (e.g. tfstate)
+#      TF_STATE_KEY               — state key (e.g. dev.tfstate)
+#
+# 4. Create a GitHub Environment named `dev-approve` and add required reviewers
+#    (TechLead). The `terraform-apply` job below references it, so the run will
+#    pause for manual approval before applying.
+#
+# 5. The Static Web App deploy step uses `Azure/static-web-apps-deploy@v1` with
+#    a deployment token. Either:
+#      a) read the SWA deployment token via `az staticwebapp secrets list` after
+#         OIDC login (this workflow's approach, no extra secret), or
+#      b) store it as `AZURE_STATIC_WEB_APPS_API_TOKEN` and pass it directly.
+#
+# Required repo variables: see step 3 above.
+# Required repo secrets:   none — OIDC handles auth.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+jobs:
+  # Wait for the matching CI run on this commit to succeed before deploying.
+  wait-for-ci:
+    name: Wait for CI green
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI workflow
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: Backend (lint / typecheck / test / build / docker)
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 20
+      - name: Wait for frontend CI
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: Frontend (lint / typecheck / test / build)
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 20
+      - name: Wait for terraform CI
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: Terraform (fmt / validate)
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 20
+
+  backend-image:
+    name: Backend — build & push to ACR
+    needs: wait-for-ci
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name "${{ vars.ACR_NAME }}"
+
+      - name: Compute image metadata
+        id: meta
+        run: |
+          SHA="${GITHUB_SHA::12}"
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/pixdiary-backend"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:main
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+          provenance: false
+
+  terraform-apply:
+    name: Terraform apply (dev) — manual approval
+    needs: backend-image
+    runs-on: ubuntu-latest
+    environment: dev-approve
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/dev
+    env:
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_backend_image: ${{ needs.backend-image.outputs.image }}:${{ needs.backend-image.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Terraform init (remote state)
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.TF_STATE_KEY }}"
+
+      - name: Terraform plan
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve tfplan
+
+  frontend-deploy:
+    name: Frontend — build & deploy to SWA
+    needs: terraform-apply
+    runs-on: ubuntu-latest
+    environment: dev-approve
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          # Backend FQDN comes from the Container App created in #11.
+          # The TechLead can wire this via terraform output → repo variable.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm run build
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch SWA deployment token
+        id: swa-token
+        run: |
+          TOKEN=$(az staticwebapp secrets list \
+            --name "${{ vars.SWA_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true
