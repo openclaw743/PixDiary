@@ -72,12 +72,7 @@ describe('error middleware', () => {
 
   it('handles generic Error as 500', () => {
     const res = mockRes();
-    errorHandler(
-      new Error('boom'),
-      { path: '/x', method: 'GET' } as Request,
-      res,
-      () => undefined,
-    );
+    errorHandler(new Error('boom'), { path: '/x', method: 'GET' } as Request, res, () => undefined);
     expect(res._status).toBe(500);
     expect((res._json as { error: { code: string } }).error.code).toBe('internal_error');
   });

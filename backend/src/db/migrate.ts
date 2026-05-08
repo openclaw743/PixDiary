@@ -100,10 +100,10 @@ export async function migrateUp(opts: MigrateOptions = {}): Promise<string[]> {
       try {
         await client.query('BEGIN');
         await client.query(sql);
-        await client.query(
-          'INSERT INTO schema_migrations (version, name) VALUES ($1, $2)',
-          [m.version, m.name],
-        );
+        await client.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [
+          m.version,
+          m.name,
+        ]);
         await client.query('COMMIT');
         applied.push(`${m.version}_${m.name}`);
       } catch (err) {
@@ -146,7 +146,9 @@ export async function migrateDown(opts: MigrateOptions = {}): Promise<string[]> 
         reverted.push(`${m.version}_${m.name}`);
       } catch (err) {
         await client.query('ROLLBACK').catch(() => undefined);
-        throw new Error(`Migration ${m.version}_${m.name} (down) failed: ${(err as Error).message}`);
+        throw new Error(
+          `Migration ${m.version}_${m.name} (down) failed: ${(err as Error).message}`,
+        );
       } finally {
         client.release();
       }
@@ -171,11 +173,15 @@ async function main(): Promise<void> {
     if (cmd === 'up') {
       const applied = await migrateUp();
       // eslint-disable-next-line no-console
-      console.error(applied.length ? `Applied:\n  ${applied.join('\n  ')}` : 'No pending migrations.');
+      console.error(
+        applied.length ? `Applied:\n  ${applied.join('\n  ')}` : 'No pending migrations.',
+      );
     } else {
       const reverted = await migrateDown({ steps });
       // eslint-disable-next-line no-console
-      console.error(reverted.length ? `Reverted:\n  ${reverted.join('\n  ')}` : 'Nothing to revert.');
+      console.error(
+        reverted.length ? `Reverted:\n  ${reverted.join('\n  ')}` : 'Nothing to revert.',
+      );
     }
   } catch (err) {
     // eslint-disable-next-line no-console

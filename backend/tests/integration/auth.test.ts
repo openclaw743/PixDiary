@@ -56,7 +56,9 @@ async function waitForPg(url: string, timeoutMs: number): Promise<void> {
       await delay(500);
     }
   }
-  throw new Error(`Postgres did not become ready in ${timeoutMs}ms: ${(lastErr as Error)?.message}`);
+  throw new Error(
+    `Postgres did not become ready in ${timeoutMs}ms: ${(lastErr as Error)?.message}`,
+  );
 }
 
 async function startDockerPg(): Promise<TestPg> {
@@ -153,7 +155,12 @@ interface AuthResp {
   user: { id: string; email: string };
 }
 
-async function api(method: string, path: string, body?: unknown, token?: string): Promise<{
+async function api(
+  method: string,
+  path: string,
+  body?: unknown,
+  token?: string,
+): Promise<{
   status: number;
   body: unknown;
 }> {
