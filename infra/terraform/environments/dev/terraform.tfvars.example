@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and adjust per your environment.
+# Defaults already match the PixDiary dev environment; override only if needed.
+
+subscription_id     = "427d4176-864a-44c1-8470-468709ff9252"
+resource_group_name = "rg-Sandbox"
+region              = "westeurope"
+name_prefix         = "pixdiary-dev"
+
+# Globally unique storage account name. 3-24 chars, lowercase letters and digits only.
+storage_account_name = "stpixdiarydev"
+
+# Local Vite dev origin allowed in storage CORS in addition to the SWA hostname.
+swa_dev_origin = "http://localhost:5173"
+
+tags = {
+  project    = "pixdiary"
+  env        = "dev"
+  managed-by = "terraform"
+  owner      = "infraguy"
+}
