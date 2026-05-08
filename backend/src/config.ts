@@ -19,6 +19,30 @@ const ConfigSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   RATE_LIMIT_AUTH_PER_MIN: z.coerce.number().int().positive().default(10),
   RATE_LIMIT_GENERAL_PER_MIN: z.coerce.number().int().positive().default(600),
+  RATE_LIMIT_UPLOADS_PER_10MIN: z.coerce.number().int().positive().default(50),
+  RATE_LIMIT_DRAFTS_PER_HOUR: z.coerce.number().int().positive().default(20),
+  RATE_LIMIT_REGEN_PER_DAY: z.coerce.number().int().positive().default(5),
+
+  // Azure Blob storage. In dev/CI we use Azurite via connection string.
+  // In prod, use ACCOUNT_NAME + managed identity (DefaultAzureCredential).
+  AZURE_STORAGE_CONNECTION_STRING: z.string().optional(),
+  AZURE_STORAGE_ACCOUNT_NAME: z.string().optional(),
+  AZURE_STORAGE_CONTAINER: z.string().min(1).default('photos'),
+  AZURE_STORAGE_SAS_UPLOAD_TTL_SECONDS: z.coerce.number().int().positive().max(900).default(600),
+  AZURE_STORAGE_SAS_READ_TTL_SECONDS: z.coerce.number().int().positive().max(900).default(900),
+
+  // Azure AI Foundry (OpenAI compatible) — managed identity preferred.
+  AZURE_OPENAI_ENDPOINT: z.string().optional(),
+  AZURE_OPENAI_API_KEY: z.string().optional(),
+  AZURE_OPENAI_API_VERSION: z.string().default('2024-10-21'),
+  AZURE_OPENAI_DEPLOYMENT_DEFAULT: z.string().default('gpt-4o-mini'),
+  AZURE_OPENAI_DEPLOYMENT_BETTER: z.string().default('gpt-4o'),
+
+  // Azure Maps — API key via Key Vault in prod.
+  AZURE_MAPS_KEY: z.string().optional(),
+
+  // Master switch — disables outbound AI/Maps calls (used in unit tests).
+  AI_DISABLED: z.coerce.boolean().default(false),
 });
 
 export type Config = z.infer<typeof ConfigSchema> & {
