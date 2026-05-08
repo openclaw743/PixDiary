@@ -32,33 +32,25 @@ const LogoutSchema = z.object({
 export function buildAuthRouter(): Router {
   const r = Router();
 
-  r.post(
-    '/auth/signup',
-    authLimiter(),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const body = SignupSchema.parse(req.body);
-        const { user, tokens } = await signupSvc(body.email, body.password);
-        res.status(201).json({ ...tokens, user });
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
+  r.post('/auth/signup', authLimiter(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = SignupSchema.parse(req.body);
+      const { user, tokens } = await signupSvc(body.email, body.password);
+      res.status(201).json({ ...tokens, user });
+    } catch (err) {
+      next(err);
+    }
+  });
 
-  r.post(
-    '/auth/login',
-    authLimiter(),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const body = LoginSchema.parse(req.body);
-        const { user, tokens } = await loginSvc(body.email, body.password);
-        res.status(200).json({ ...tokens, user });
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
+  r.post('/auth/login', authLimiter(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = LoginSchema.parse(req.body);
+      const { user, tokens } = await loginSvc(body.email, body.password);
+      res.status(200).json({ ...tokens, user });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   r.post(
     '/auth/refresh',

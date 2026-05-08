@@ -1,8 +1,12 @@
 import { Route, Routes } from 'react-router-dom';
 
 import { RequireAuth } from '@/auth/RequireAuth';
+import CalendarPage from '@/pages/Calendar';
+import EntryPage from '@/pages/Entry';
 import LoginPage from '@/pages/Login';
+import SettingsPage from '@/pages/Settings';
 import SignupPage from '@/pages/Signup';
+import UploadPage from '@/pages/Upload';
 import PlaceholderPage from '@/pages/__placeholder__';
 
 export default function App() {
@@ -14,10 +18,7 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <PlaceholderPage
-              title="Today"
-              description="Your diary timeline lives here. Coming in the next milestone."
-            />
+            <CalendarPage />
           </RequireAuth>
         }
       />
@@ -25,10 +26,7 @@ export default function App() {
         path="/upload"
         element={
           <RequireAuth>
-            <PlaceholderPage
-              title="Upload photos"
-              description="Drag-drop photo upload arrives in the next milestone."
-            />
+            <UploadPage />
           </RequireAuth>
         }
       />
@@ -36,10 +34,7 @@ export default function App() {
         path="/entries/:id"
         element={
           <RequireAuth>
-            <PlaceholderPage
-              title="Diary entry"
-              description="Inline edit + save view arrives in the next milestone."
-            />
+            <EntryPage />
           </RequireAuth>
         }
       />
@@ -47,10 +42,7 @@ export default function App() {
         path="/calendar"
         element={
           <RequireAuth>
-            <PlaceholderPage
-              title="Calendar"
-              description="Browse past entries by month — coming in the next milestone."
-            />
+            <CalendarPage />
           </RequireAuth>
         }
       />
@@ -58,10 +50,7 @@ export default function App() {
         path="/settings"
         element={
           <RequireAuth>
-            <PlaceholderPage
-              title="Settings"
-              description="Daily AI cap, timezone, export, and account deletion — next milestone."
-            />
+            <SettingsPage />
           </RequireAuth>
         }
       />

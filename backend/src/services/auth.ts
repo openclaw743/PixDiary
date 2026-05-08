@@ -94,7 +94,11 @@ function poolOf(deps?: ServiceDeps): Pool {
   return deps?.pool ?? getPool();
 }
 
-async function insertRefreshToken(client: PoolClient, userId: string, token: string): Promise<void> {
+async function insertRefreshToken(
+  client: PoolClient,
+  userId: string,
+  token: string,
+): Promise<void> {
   const cfg = getConfig();
   const expiresAt = new Date(Date.now() + cfg.JWT_REFRESH_TTL_SECONDS * 1000);
   await client.query(
@@ -233,10 +237,9 @@ export async function revokeRefresh(presentedToken: string, deps?: ServiceDeps):
 
 export async function getUserById(userId: string, deps?: ServiceDeps): Promise<PublicUser | null> {
   const pool = poolOf(deps);
-  const r = await pool.query<UserRow>(
-    `SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL`,
-    [userId],
-  );
+  const r = await pool.query<UserRow>(`SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL`, [
+    userId,
+  ]);
   const row = r.rows[0];
   return row ? publicUser(row) : null;
 }
