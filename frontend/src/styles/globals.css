@@ -1,0 +1,134 @@
+/**
+ * Global stylesheet.
+ *
+ * 1. Imports self-hosted Inter + Fraunces (no Google Fonts CDN at runtime).
+ * 2. Defines token-driven CSS variables (mirrors tokens.json — kept in sync via
+ *    scripts/build-tokens.mjs for runtime CSS, while tailwind.config.ts pulls
+ *    from the same source for utilities).
+ * 3. Sets the global focus ring (3px, accent.700 — see accessibility.md).
+ * 4. Honours `prefers-reduced-motion`.
+ */
+
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/fraunces/400.css';
+@import '@fontsource/fraunces/600.css';
+@import '@fontsource/fraunces/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Mirrors docs/design-system/tokens.json — single source of truth. */
+  --color-ink-900: #1a1714;
+  --color-ink-800: #2c2723;
+  --color-ink-700: #3f3832;
+  --color-ink-600: #5c5249;
+  --color-ink-500: #807467;
+  --color-ink-400: #a89c90;
+  --color-ink-300: #cabfb3;
+  --color-ink-200: #e4dcd2;
+  --color-ink-100: #f2ece3;
+  --color-ink-50: #faf6ef;
+
+  --color-accent-700: #a0521a;
+  --color-accent-600: #c26a2d;
+  --color-accent-500: #d98548;
+  --color-accent-400: #e5a371;
+  --color-accent-200: #f5d6bb;
+
+  --color-success: #3f7d58;
+  --color-warning: #c0791c;
+  --color-danger: #a8392b;
+
+  --color-surface-page: #faf6ef;
+  --color-surface-card: #ffffff;
+  --color-surface-raised: #f2ece3;
+
+  --color-border-subtle: #e4dcd2;
+  --color-border-strong: #cabfb3;
+
+  --color-focus-ring: var(--color-accent-700);
+
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-surface-page);
+    color: var(--color-ink-900);
+    font-family:
+      'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-surface-page);
+    color: var(--color-ink-900);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    color: var(--color-ink-900);
+  }
+
+  /* Global 3px focus ring per accessibility.md (accent.700). */
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Inputs/textareas need a slightly different treatment so the ring sits
+     outside the field border rather than overlapping. */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 0;
+  }
+}
+
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Honour prefers-reduced-motion globally per accessibility.md. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

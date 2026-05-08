@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.env
+.env.local
+.env.*.local
+src/styles/.generated
+.vite
+*.log
+*.tsbuildinfo
+.DS_Store
