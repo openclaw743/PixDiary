@@ -5,8 +5,12 @@ import { getConfig } from './config';
 import { getLogger } from './log';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { generalLimiter } from './middleware/rate-limit';
+import { buildAccountRouter } from './routes/account';
 import { buildAuthRouter } from './routes/auth';
+import { buildEntriesRouter } from './routes/entries';
 import { buildHealthRouter } from './routes/health';
+import { buildSettingsRouter } from './routes/settings';
+import { buildUploadsRouter } from './routes/uploads';
 
 export function buildApp(): Express {
   const cfg = getConfig();
@@ -49,6 +53,10 @@ export function buildApp(): Express {
   app.use(generalLimiter());
 
   app.use(buildAuthRouter());
+  app.use(buildUploadsRouter());
+  app.use(buildEntriesRouter());
+  app.use(buildSettingsRouter());
+  app.use(buildAccountRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

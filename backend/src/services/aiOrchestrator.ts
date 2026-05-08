@@ -12,7 +12,6 @@
  * polls `GET /entries/:id` for status to flip from `processing` → `drafted`.
  */
 import type { Pool, PoolClient } from 'pg';
-import { getConfig } from '../config';
 import { getLogger } from '../log';
 import { getPool } from '../db/pool';
 import { QuotaExceededError } from '../errors';
