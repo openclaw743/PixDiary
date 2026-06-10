@@ -216,9 +216,13 @@ jobs:
           node-version: '22'
 
       - name: Install root (Playwright) deps
+        env:
+          NODE_ENV: development
         run: npm install --no-audit --no-fund --no-package-lock
 
       - name: Install Playwright browser (${{ matrix.browser }})
+        env:
+          NODE_ENV: development
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Install backend deps
