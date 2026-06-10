@@ -106,11 +106,11 @@ export default function EntryPage() {
   // Disabling locally rather than refactoring to a `key`-based reset keeps the
   // component shape simple; this effect runs at most once per edit/text change
   // and does not cascade renders in practice.
-  /* eslint-disable react-hooks/set-state-in-effect */
+
   useEffect(() => {
     if (editing) setDraft(displayedText);
   }, [editing, displayedText]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+
 
   // Focus textarea when entering edit mode.
   useEffect(() => {
