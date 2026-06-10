@@ -262,15 +262,10 @@ jobs:
           echo "azurite failed to start"; exit 1
 
       - name: Create blob container in Azurite
+        working-directory: backend
+        # Use the backend's @azure/storage-blob (already installed by
+        # `Install backend deps`) to avoid pulling it again at the root.
         run: |
-          # Azurite ships with a well-known SAS-able account; use the
-          # Microsoft-hosted account name + key in the AZURE_STORAGE_*
-          # env vars. The simplest container bootstrap is `az storage`,
-          # but to avoid pulling the full Azure CLI we use the REST API
-          # with the well-known account.
-          # The account `devstoreaccount1` and its key are the Azurite
-          # built-in default — they are public knowledge, not secrets.
-          npx -y @azure/storage-blob@12 -h >/dev/null 2>&1 || true
           node -e '
             const { BlobServiceClient } = require("@azure/storage-blob");
             const cs = process.env.AZURE_STORAGE_CONNECTION_STRING;
