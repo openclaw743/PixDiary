@@ -100,9 +100,17 @@ export default function EntryPage() {
   );
 
   // Sync draft when entering edit mode (or when entry text changes externally).
+  // The react-hooks/set-state-in-effect rule (new in eslint-plugin-react-hooks
+  // v7) flags this, but the pattern is intentional: we genuinely want the draft
+  // to follow the canonical text until the user has actually started editing.
+  // Disabling locally rather than refactoring to a `key`-based reset keeps the
+  // component shape simple; this effect runs at most once per edit/text change
+  // and does not cascade renders in practice.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (editing) setDraft(displayedText);
   }, [editing, displayedText]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Focus textarea when entering edit mode.
   useEffect(() => {

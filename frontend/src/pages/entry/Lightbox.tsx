@@ -29,11 +29,17 @@ export function Lightbox({
   const [altDraft, setAltDraft] = useState(photo?.altText ?? '');
   const [overrides, setOverrides] = useState<Record<string, string>>({});
 
-  // Keep alt input in sync when navigating between photos
+  // Keep alt input in sync when navigating between photos.
+  // The react-hooks/set-state-in-effect rule (new in eslint-plugin-react-hooks
+  // v7) flags these as cascading renders, but here they are a deliberate sync
+  // of local UI state to a prop change — cleaner than re-keying the component
+  // tree on every navigation. Disabling locally with a justification.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setEditingAlt(false);
     setAltDraft(overrides[photo?.id ?? ''] ?? photo?.altText ?? '');
   }, [photo, overrides]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!photo) return null;
 
