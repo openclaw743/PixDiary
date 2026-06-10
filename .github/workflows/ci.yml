@@ -227,7 +227,9 @@ jobs:
 
       - name: Backend build
         working-directory: backend
-        run: npm run build
+        run: |
+          node -p "require('typescript/package.json').version" || true
+          npm run build
 
       - name: Apply DB migrations
         working-directory: backend
