@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "purpose": "Vision response that's missing the 'mood' field entirely. Fixture for testing the parser's tolerance for partial responses.",
+    "model": "gpt-4o-mini"
+  },
+  "id": "chatcmpl-test-vision-partial",
+  "object": "chat.completion",
+  "created": 1730000030,
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"scene\": \"A close-up of a coffee cup on a wooden table.\", \"subjects\": [\"coffee cup\"]}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1100,
+    "completion_tokens": 22,
+    "total_tokens": 1122
+  }
+}

@@ -225,7 +225,26 @@ export async function hardDeleteAccount(
     `SELECT blob_path FROM photos WHERE user_id = $1`,
     [userId],
   );
-  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+
+  // The schema has `entry_photos.photo_id ON DELETE RESTRICT`, so the implicit
+  // cascade from `users → photos` will fail if any photo is still referenced.
+  // Drive the teardown in the dependency-safe order inside a single tx:
+  //   1. DELETE entries  → cascades to entry_photos, entry_revisions.
+  //   2. DELETE photos   → now unreferenced.
+  //   3. DELETE users    → cascades to remaining refresh_tokens / ai_* rows.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM entries WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM photos WHERE user_id = $1`, [userId]);
+    await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
 
   let removed = 0;
   for (const row of blobs.rows) {
