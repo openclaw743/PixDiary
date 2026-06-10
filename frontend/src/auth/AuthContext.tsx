@@ -35,21 +35,26 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children, skipBootstrap }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [status, setStatus] = useState<AuthContextValue['status']>(
-    skipBootstrap ? 'anonymous' : 'loading',
-  );
+  // Compute the initial status during render so the effect never has to call
+  // setState synchronously on its first run (which the react-hooks v7 rule
+  // `react-hooks/set-state-in-effect` forbids). If no tokens exist, we know
+  // up-front that we are anonymous; only when tokens exist do we briefly enter
+  // `loading` while /me hydration completes.
+  const [status, setStatus] = useState<AuthContextValue['status']>(() => {
+    if (skipBootstrap) return 'anonymous';
+    return getAccessToken() || getRefreshToken() ? 'loading' : 'anonymous';
+  });
 
   // On mount, if we have an access (or refresh) token in sessionStorage,
   // hydrate the user from /me. This survives an in-tab reload.
   useEffect(() => {
     if (skipBootstrap) return;
-    let cancelled = false;
     const accessToken = getAccessToken();
     const refreshToken = getRefreshToken();
-    if (!accessToken && !refreshToken) {
-      setStatus('anonymous');
-      return;
-    }
+    // No tokens → initial state already set to 'anonymous' by the lazy
+    // initializer above; nothing to do.
+    if (!accessToken && !refreshToken) return;
+    let cancelled = false;
     void (async () => {
       try {
         const me = await api.get<AuthUser>('/me');
