@@ -341,7 +341,12 @@ jobs:
           exit 1
 
       - name: Run Playwright E2E (${{ matrix.browser }})
-        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          E2E_API_BASE_URL: http://127.0.0.1:3000
+          E2E_BASE_URL: http://127.0.0.1:4173
+          E2E_NO_WEBSERVER: '1'
+          NODE_ENV: development
+        run: npx playwright test --project=${{ matrix.browser }} --reporter=list,html
 
       - name: Stop services
         if: always()
