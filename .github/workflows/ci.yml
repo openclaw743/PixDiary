@@ -223,16 +223,23 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
+        # The job-level NODE_ENV=production (needed for the running backend) makes
+        # `npm ci` skip devDependencies. Override here so TypeScript / vitest /
+        # tsx are installed for the build + migrate steps.
+        env:
+          NODE_ENV: development
         run: npm ci
 
       - name: Backend build
         working-directory: backend
-        run: |
-          node -p "require('typescript/package.json').version" || true
-          npm run build
+        env:
+          NODE_ENV: development
+        run: npm run build
 
       - name: Apply DB migrations
         working-directory: backend
+        env:
+          NODE_ENV: development
         run: npm run migrate:up
 
       - name: Start Azurite container
