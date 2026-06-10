@@ -311,11 +311,16 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
+        # Same reason as the backend: NODE_ENV=production strips devDependencies
+        # so TypeScript / vitest-types / etc. would be missing for the build.
+        env:
+          NODE_ENV: development
         run: npm ci
 
       - name: Frontend build (with VITE_API_BASE_URL)
         working-directory: frontend
         env:
+          NODE_ENV: development
           VITE_API_BASE_URL: http://127.0.0.1:3000
         run: npm run build
 
