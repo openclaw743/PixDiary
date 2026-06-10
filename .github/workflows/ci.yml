@@ -327,7 +327,7 @@ jobs:
       - name: Start frontend (vite preview)
         working-directory: frontend
         run: |
-          nohup npx vite preview --port 4173 --strictPort > ../frontend.log 2>&1 &
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > ../frontend.log 2>&1 &
           echo $! > ../frontend.pid
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
