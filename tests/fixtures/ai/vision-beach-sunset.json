@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "purpose": "Vision call for a sunset beach photo. Fixture for tests that exercise the gpt-4o-mini vision shape without hitting Azure.",
+    "model": "gpt-4o-mini",
+    "request": {
+      "system": "(see VISION_SYSTEM_PROMPT in aiClient.ts)",
+      "user": "Describe this photo. JSON only.",
+      "imageHint": "beach-sunset.jpg (fixture)"
+    }
+  },
+  "id": "chatcmpl-test-vision-1",
+  "object": "chat.completion",
+  "created": 1730000000,
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"scene\": \"Wide sandy beach at low tide, golden-hour sun low on the horizon. Long shadows from a single figure walking near the surf. Calm, glassy waves and a pastel sky.\", \"subjects\": [\"beach\", \"sunset\", \"solitary walker\"], \"mood\": \"contemplative\", \"weather\": \"clear and warm\", \"activity\": \"evening walk\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1240,
+    "completion_tokens": 88,
+    "total_tokens": 1328
+  }
+}

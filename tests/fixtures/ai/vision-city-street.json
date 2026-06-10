@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "purpose": "Vision call for a city-street photo with two people in foreground. Fixture for orchestrator + vision tests.",
+    "model": "gpt-4o-mini",
+    "request": {
+      "imageHint": "city-street.jpg"
+    }
+  },
+  "id": "chatcmpl-test-vision-2",
+  "object": "chat.completion",
+  "created": 1730000010,
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"scene\": \"Narrow cobblestone street in an old European quarter, late afternoon light. Two figures walk away from camera between low brick buildings; a small cafe with red awnings sits on the right.\", \"subjects\": [\"two figures from behind\", \"cobblestone street\", \"cafe\"], \"mood\": \"relaxed\", \"weather\": \"overcast\", \"activity\": \"strolling\"}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1295,
+    "completion_tokens": 92,
+    "total_tokens": 1387
+  }
+}

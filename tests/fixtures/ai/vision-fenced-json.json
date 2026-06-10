@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "purpose": "Vision response wrapped in markdown code fences. Fixture for testing the parser strips ```json ... ``` correctly.",
+    "model": "gpt-4o-mini"
+  },
+  "id": "chatcmpl-test-vision-fenced",
+  "object": "chat.completion",
+  "created": 1730000040,
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "```json\n{\"scene\": \"A bowl of ramen with soft-boiled egg, scallion, and chashu.\", \"subjects\": [\"ramen bowl\", \"egg\", \"chashu\"], \"mood\": \"hungry\", \"weather\": null, \"activity\": \"eating out\"}\n```"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1150,
+    "completion_tokens": 50,
+    "total_tokens": 1200
+  }
+}

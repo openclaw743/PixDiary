@@ -154,3 +154,214 @@ jobs:
       - name: Terraform validate — dev env
         working-directory: infra/terraform/environments/dev
         run: terraform validate -no-color
+
+  e2e:
+    name: E2E (Playwright matrix + axe-core)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    # The matrix runs each browser in its own job for parallel speed and
+    # isolated reports. Shards are 1, since the suite is small.
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pixdiary
+          POSTGRES_PASSWORD: pixdiary
+          POSTGRES_DB: pixdiary_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pixdiary -d pixdiary_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      # Note: Azurite is started as a container in a separate step
+      # because GitHub services can't pass CLI flags to override the
+      # entrypoint reliably; --skipApiVersionCheck/--loose are required
+      # to satisfy newer @azure/storage-blob clients.
+
+    env:
+      # --- Backend env (must match what we set when starting it below) ---
+      DATABASE_URL: postgres://pixdiary:pixdiary@localhost:5432/pixdiary_test
+      JWT_SECRET: ci-not-a-real-secret-ci-not-a-real-secret
+      JWT_ACCESS_TTL_SECONDS: "900"
+      JWT_REFRESH_TTL_SECONDS: "604800"
+      PORT: "3000"
+      NODE_ENV: production
+      LOG_LEVEL: warn
+      BCRYPT_COST: "4"
+      AI_DISABLED: "true"
+      AZURE_OPENAI_ENDPOINT: "https://example.invalid"
+      AZURE_OPENAI_DEPLOYMENT: dummy
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+      AZURE_STORAGE_CONTAINER: pixdiary-photos
+      CORS_ORIGINS: "http://127.0.0.1:4173,http://localhost:4173"
+      # --- E2E client env ---
+      E2E_API_BASE_URL: http://127.0.0.1:3000
+      E2E_BASE_URL: http://127.0.0.1:4173
+      E2E_NO_WEBSERVER: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install root (Playwright) deps
+        run: npm install --no-audit --no-fund --no-package-lock
+
+      - name: Install Playwright browser (${{ matrix.browser }})
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend build
+        working-directory: backend
+        run: npm run build
+
+      - name: Apply DB migrations
+        working-directory: backend
+        run: npm run migrate:up
+
+      - name: Start Azurite container
+        run: |
+          docker run -d \
+            --name pixdiary-e2e-azurite \
+            --network host \
+            mcr.microsoft.com/azure-storage/azurite:3.33.0 \
+            azurite --skipApiVersionCheck --loose \
+              --blobHost 0.0.0.0 \
+              --queueHost 0.0.0.0 \
+              --tableHost 0.0.0.0
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:10000/devstoreaccount1?comp=list >/dev/null 2>&1 \
+              || nc -z 127.0.0.1 10000 2>/dev/null; then
+              echo "azurite up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "azurite failed to start"; exit 1
+
+      - name: Create blob container in Azurite
+        run: |
+          # Azurite ships with a well-known SAS-able account; use the
+          # Microsoft-hosted account name + key in the AZURE_STORAGE_*
+          # env vars. The simplest container bootstrap is `az storage`,
+          # but to avoid pulling the full Azure CLI we use the REST API
+          # with the well-known account.
+          # The account `devstoreaccount1` and its key are the Azurite
+          # built-in default — they are public knowledge, not secrets.
+          npx -y @azure/storage-blob@12 -h >/dev/null 2>&1 || true
+          node -e '
+            const { BlobServiceClient } = require("@azure/storage-blob");
+            const cs = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            const name = process.env.AZURE_STORAGE_CONTAINER;
+            (async () => {
+              const svc = BlobServiceClient.fromConnectionString(cs);
+              const c = svc.getContainerClient(name);
+              try { await c.create(); console.log("created", name); }
+              catch (e) {
+                if (String(e.message || e).includes("already exists")) {
+                  console.log("already exists", name);
+                } else { throw e; }
+              }
+            })();
+          '
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ env.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_STORAGE_CONTAINER: ${{ env.AZURE_STORAGE_CONTAINER }}
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          # Lift rate limiters; otherwise multiple Playwright workers trip
+          # signup/draft limits.
+          RATE_LIMIT_AUTH_PER_MIN: "10000"
+          RATE_LIMIT_GENERAL_PER_MIN: "100000"
+          RATE_LIMIT_UPLOADS_PER_10MIN: "10000"
+          RATE_LIMIT_DRAFTS_PER_HOUR: "10000"
+          RATE_LIMIT_REGEN_PER_DAY: "10000"
+        run: |
+          nohup node dist/index.js > ../backend.log 2>&1 &
+          echo $! > ../backend.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/healthz >/dev/null; then
+              echo "backend up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "backend failed to start"
+          cat ../backend.log
+          exit 1
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend build (with VITE_API_BASE_URL)
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:3000
+        run: npm run build
+
+      - name: Start frontend (vite preview)
+        working-directory: frontend
+        run: |
+          nohup npx vite preview --port 4173 --strictPort > ../frontend.log 2>&1 &
+          echo $! > ../frontend.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              echo "frontend up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "frontend failed to start"
+          cat ../frontend.log
+          exit 1
+
+      - name: Run Playwright E2E (${{ matrix.browser }})
+        run: npx playwright test --project=${{ matrix.browser }}
+
+      - name: Stop services
+        if: always()
+        run: |
+          [ -f backend.pid ] && kill "$(cat backend.pid)" || true
+          [ -f frontend.pid ] && kill "$(cat frontend.pid)" || true
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.browser }}-${{ github.sha }}
+          path: playwright-report
+          retention-days: 7
+
+      - name: Upload Playwright traces & videos
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-failures-${{ matrix.browser }}-${{ github.sha }}
+          path: test-results
+          retention-days: 7
+
+      - name: Upload backend & frontend logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-logs-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            backend.log
+            frontend.log
+          retention-days: 7

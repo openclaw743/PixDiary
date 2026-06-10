@@ -1,0 +1,17 @@
+{
+  "name": "pixdiary-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "End-to-end test harness (Playwright + axe-core) for PixDiary. The backend and frontend each have their own package.json; this one only carries E2E tooling so the root stays slim.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install --with-deps",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.49.1",
+    "@types/node": "22.10.2"
+  }
+}

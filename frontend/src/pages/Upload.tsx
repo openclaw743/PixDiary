@@ -315,6 +315,7 @@ export default function UploadPage() {
           type="file"
           multiple
           accept={ACCEPT_ATTR}
+          aria-label="Choose photos to upload"
           className="sr-only"
           onChange={(e) => {
             onFilesChosen(e.target.files);

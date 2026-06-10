@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "purpose": "Draft generation from the two vision fixtures + a place name + voice prompt. Fixture for orchestrator end-to-end and draft-call tests.",
+    "model": "gpt-4o-mini",
+    "tier": "default",
+    "request": {
+      "entryDate": "2025-05-08",
+      "placeNames": ["Copenhagen, Denmark"],
+      "voiceSamplesUsed": 0
+    }
+  },
+  "id": "chatcmpl-test-draft-1",
+  "object": "chat.completion",
+  "created": 1730000020,
+  "model": "gpt-4o-mini-2024-07-18",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Today started slow and then turned out lovely. The morning was the usual coffee-and-laptop routine, but by late afternoon I wandered out into one of the older quarters of Copenhagen with a friend. The cobblestones felt good under my shoes and the light was that soft, slightly overcast kind that makes brick look warm. We passed a little cafe with red awnings — almost stopped, didn't, kept walking. After dinner I went down to the beach. The tide was out, the sky was pastel, and the sun sat right on the horizon line. I walked along the wet sand for a while; just my footprints. It felt good not to talk to anyone for a bit. By the time I turned around, the sun had dropped and the air had cooled enough to make me wish I'd brought a jacket. Worth it though. The kind of quiet evening I want to remember."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 380,
+    "completion_tokens": 196,
+    "total_tokens": 576
+  }
+}
