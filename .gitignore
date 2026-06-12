@@ -47,3 +47,8 @@ infra/terraform/**/.terraform.lock.hcl
 # Misc
 *.tmp
 .cache/
+
+# Terraform local helpers (TechLead workstation only)
+infra/terraform/environments/dev/local/
+infra/terraform/environments/**/*.tf.bak
+infra/terraform/environments/**/tfplan
