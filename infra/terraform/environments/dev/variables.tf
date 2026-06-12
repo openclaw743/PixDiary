@@ -43,3 +43,15 @@ variable "tags" {
     owner      = "infraguy"
   }
 }
+
+variable "deploy_principal_id" {
+  type        = string
+  default     = ""
+  description = "Optional: deploy UAMI principal id, granted AcrPush + KV Secrets Officer."
+}
+
+variable "backend_image" {
+  type        = string
+  default     = "mcr.microsoft.com/k8se/quickstart:latest"
+  description = "Backend image to run on the Container App. Defaults to the public quickstart image to bootstrap; CD pipeline should override with the ACR image:tag."
+}

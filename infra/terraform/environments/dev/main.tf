@@ -60,6 +60,17 @@ module "swa" {
   tags                = var.tags
 }
 
+module "acr" {
+  source                     = "../../modules/acr"
+  name_prefix                = var.name_prefix
+  location                   = var.region
+  resource_group_name        = data.azurerm_resource_group.this.name
+  container_app_principal_id = azurerm_user_assigned_identity.app.principal_id
+  deploy_principal_id        = var.deploy_principal_id
+  tags                       = var.tags
+}
+
+
 module "storage" {
   source               = "../../modules/storage"
   name_prefix          = var.name_prefix
@@ -101,6 +112,9 @@ module "container_app" {
   user_assigned_identity_id        = azurerm_user_assigned_identity.app.id
   user_assigned_identity_client_id = azurerm_user_assigned_identity.app.client_id
 
+  acr_login_server = module.acr.login_server
+  container_image  = var.backend_image
+
   storage_account_name      = module.storage.storage_account_name
   storage_container_name    = module.storage.container_name
   openai_endpoint           = module.ai.foundry_endpoint
@@ -115,7 +129,7 @@ module "container_app" {
   tags = var.tags
 
   # Ensure KV secrets exist + MI has read role before the app references them.
-  depends_on = [module.keyvault]
+  depends_on = [module.keyvault, module.acr]
 }
 
 # Grant the Container App's MI access to Foundry (Cognitive Services) for token-based auth.
