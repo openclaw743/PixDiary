@@ -66,21 +66,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for CI workflow
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.8.1
         with:
           ref: ${{ github.sha }}
           check-name: Backend (lint / typecheck / test / build / docker)
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 20
       - name: Wait for frontend CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.8.1
         with:
           ref: ${{ github.sha }}
           check-name: Frontend (lint / typecheck / test / build)
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 20
       - name: Wait for terraform CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.8.1
         with:
           ref: ${{ github.sha }}
           check-name: Terraform (fmt / validate)
